@@ -82,7 +82,7 @@ locals {
     }
   }
 
-    ingress_rules = [
+  ingress_rules = [
     {
       description      = "Allow SSH"
       from_port        = 22

@@ -1,50 +1,39 @@
-################################################################################
-## defaults
-################################################################################
-terraform {
-  required_version = "~> 1.5"
-
-  required_providers {
-    aws = {
-      version = "~> 4.0"
-      source  = "hashicorp/aws"
-    }
-  }
-}
-
-
 ##############################################
-#  Terraform module to create an EC2 resource
+#  EC2 resource
 ##############################################
 resource "aws_instance" "this" {
-  for_each                    = var.instances
   ami                         = var.ami_id
-  associate_public_ip_address = each.value.associate_public_ip_address
-  disable_api_termination     = each.value.disable_api_termination
-  disable_api_stop            = each.value.disable_api_stop
-  ebs_optimized               = each.value.ebs_optimized
-  iam_instance_profile        = aws_iam_instance_profile.this[each.key].name
-  instance_type               = each.value.instance_type
-  key_name                    = aws_key_pair.generated_key[each.key].key_name
-  monitoring                  = each.value.monitoring
-  subnet_id                   = each.value.subnet_id
-  user_data                   = each.value.user_data_raw
-  vpc_security_group_ids      = [aws_security_group.sg[each.key].id]
+  instance_type               = var.instance_type
+  associate_public_ip_address = var.associate_public_ip_address
+  disable_api_termination     = var.enable_termination_protection
+  disable_api_stop            = var.enable_stop_protection
+  ebs_optimized               = var.ebs_optimized
+  iam_instance_profile        = var.instance_profile_data.create ? aws_iam_instance_profile.this.name : var.instance_profile_data.name
 
+  key_name               = aws_key_pair.generated_key[each.key].key_name
+  monitoring             = var.enable_detailed_monitoring
+  subnet_id              = var.subnet_id
+  user_data              = var.user_data
+  vpc_security_group_ids = var.security_group_data.create ? [aws_security_group.this.id] : var.security_group_data.security_group_ids
+  private_ip             = var.private_ip
 
   metadata_options {
-    http_endpoint = each.value.metadata_endpoint_enabled
-    http_tokens   = each.value.metadata_options_http_tokens
+    http_endpoint               = var.instance_metadata_options.http_endpoint
+    http_protocol_ipv6          = var.instance_metadata_options.http_protocol_ipv6
+    http_put_response_hop_limit = var.instance_metadata_options.http_put_response_hop_limit
+    http_tokens                 = var.instance_metadata_options.http_tokens
+    instance_metadata_tags      = var.instance_metadata_options.instance_metadata_tags
   }
 
+
   root_block_device {
-    delete_on_termination = true
-    encrypted             = true
-    iops                  = each.value.ebs_volume_root.iops
-    kms_key_id            = each.value.ebs_volume_root.kms_key_id
-    throughput            = each.value.ebs_volume_root.throughput
-    volume_size           = each.value.ebs_volume_root.size
-    volume_type           = each.value.ebs_volume_root.type
+    delete_on_termination = var.root_block_device_data.delete_on_termination
+    encrypted             = var.root_block_device_data.encrypted
+    iops                  = var.root_block_device_data.iops
+    kms_key_id            = var.root_block_device_data.kms_key_id
+    throughput            = var.root_block_device_data.throughput
+    volume_size           = var.root_block_device_data.volume_size
+    volume_type           = var.root_block_device_data.volume_type
   }
 
   lifecycle {
@@ -54,34 +43,27 @@ resource "aws_instance" "this" {
     ]
   }
 
-  tags = {
-    Name = each.value.name
-  }
+  tags = merge({
+    Name = var.name
+  }, var.tags)
 }
 
-###################
-# AWS EBS Volume
-####################
+#########################
+# Additional EBS Volumes
+#########################
 
 resource "aws_ebs_volume" "this" {
-  for_each = var.ebs_volumes
+  for_each = var.additional_ebs_volumes
 
-  availability_zone = each.value.availability_zone
-  encrypted         = true
+  availability_zone = aws_instance.this.availability_zone
+  encrypted         = each.value.encrypted
   kms_key_id        = each.value.kms_key_id
   iops              = each.value.iops
   throughput        = each.value.throughput
   size              = each.value.size
   type              = each.value.type
-  snapshot_id       = each.value.snapshot_id
 
-  tags = {
-    Name = each.value.name
-  }
-
-  lifecycle {
-    ignore_changes = [snapshot_id] # retain data if AMI is updated. If you want to start from fresh, destroy it
-  }
+  tags = var.tags
 }
 
 ######################
@@ -89,11 +71,11 @@ resource "aws_ebs_volume" "this" {
 ######################
 
 resource "aws_volume_attachment" "this" {
-  for_each = var.ebs_volumes
+  for_each = var.additional_ebs_volumes
 
   device_name = each.value.device_name
   volume_id   = aws_ebs_volume.this[each.key].id
-  instance_id = aws_instance.this[each.value.instance_key].id
+  instance_id = aws_instance.this.id
 }
 
 resource "tls_private_key" "ssh_key" {
@@ -101,11 +83,10 @@ resource "tls_private_key" "ssh_key" {
   rsa_bits  = 4096
 }
 ##################
-# AWS Key Pair
+# AWS Key Pair TODO:
 #################
 resource "aws_key_pair" "generated_key" {
-  for_each   = var.instances
-  key_name   = each.value.name
+  key_name   = var.name
   public_key = tls_private_key.ssh_key.public_key_openssh
 }
 
@@ -133,42 +114,40 @@ resource "aws_kms_key" "this" {
 # AWS Security Group
 #####################
 
-resource "aws_security_group" "sg" {
-  for_each    = var.instances
-  name        = each.value.name
+resource "aws_security_group" "this" {
+  count = var.security_group_data.create ? 1 : 0
+
+  name        = var.security_group_data.name
   vpc_id      = var.vpc_id
-  description = each.value.description
+  description = var.security_group_data.description
 
   dynamic "ingress" {
-    for_each = each.value.ingress_rules
+    for_each = var.security_group_data.ingress_rules
     content {
       description      = ingress.value.description
       from_port        = ingress.value.from_port
       to_port          = ingress.value.to_port
       protocol         = ingress.value.protocol
       cidr_blocks      = ingress.value.cidr_blocks
-      security_groups  = ingress.value.security_group_id != "" ? [ingress.value.security_group_id] : []
+      security_groups  = ingress.value.security_groups
       ipv6_cidr_blocks = ingress.value.ipv6_cidr_blocks
-      self             = ingress.value.self
     }
   }
 
   dynamic "egress" {
-    for_each = each.value.egress_rules
+    for_each = var.security_group_data.egress_rules
     content {
       description      = egress.value.description
       from_port        = egress.value.from_port
       to_port          = egress.value.to_port
       protocol         = egress.value.protocol
       cidr_blocks      = egress.value.cidr_blocks
-      security_groups  = egress.value.security_group_id != "" ? [egress.value.security_group_id] : []
+      security_groups  = egress.value.security_groups
       ipv6_cidr_blocks = egress.value.ipv6_cidr_blocks
     }
   }
 
-  tags = {
-    Name = each.value.name
-  }
+  tags = var.tags
 
   lifecycle {
     create_before_destroy = true
@@ -176,16 +155,16 @@ resource "aws_security_group" "sg" {
 }
 
 ########################
-# AWS IAM Instance Profile
+# AWS IAM Instance Profile TODO:
 #########################
 resource "aws_iam_instance_profile" "this" {
   for_each = var.instances
-  name     = "${each.value.name}-profile"
+  name     = "${var.name}-profile"
 }
 
 resource "aws_iam_role" "this" {
   for_each = var.instances
-  name     = "${each.value.name}-role"
+  name     = "${var.name}-role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -205,7 +184,7 @@ resource "aws_iam_role" "this" {
 #########################
 resource "aws_iam_role_policy" "ssm_params_and_secrets" {
   for_each = var.instances
-  name     = "${each.value.name}-policy"
+  name     = "${var.name}-policy"
   role     = aws_iam_role.this[each.key].id
   policy = jsonencode({
     Version = "2012-10-17"
@@ -219,17 +198,9 @@ resource "aws_iam_role_policy" "ssm_params_and_secrets" {
   })
 }
 
-resource "aws_eip" "this" {
-  for_each = { for key, instance in var.instances : key => instance if instance.associate_public_ip_address }
+resource "aws_eip" "lb" {
+  instance = aws_instance.this.id
+  domain   = "vpc"
 
-  tags = {
-    Name = each.value.name
-  }
-}
-
-
-resource "aws_eip_association" "this" {
-  for_each      = aws_eip.this
-  instance_id   = aws_instance.this[each.key].id
-  allocation_id = each.value.id
+  tags = var.tags
 }

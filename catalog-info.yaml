@@ -1,0 +1,22 @@
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: terraform-aws-arc-security
+  namespace: arc
+  description: Terraform module for managing Security Hub components.
+  annotations:
+    snyk.io/org-id: 04111b7b-2ba8-404b-8a16-42a04448794d
+    github.com/project-slug: sourcefuse/terraform-aws-arc-security
+    backstage.io/techdocs-ref: dir:.
+  links:
+    - url: https://sourcefuse.github.io/arc-docs/arc-iac-docs/
+      title: ARC Docs
+      icon: dashboard
+    - url: https://sourcefuse.github.io/arc-docs/arc-iac-docs/modules/terraform-aws-arc-security/
+      title: ARC DB Docs
+      icon: dashboard
+spec:
+  type: service
+  owner: sourcefuse
+  lifecycle: development
