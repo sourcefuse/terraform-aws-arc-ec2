@@ -8,13 +8,13 @@ resource "aws_instance" "this" {
   disable_api_termination     = var.enable_termination_protection
   disable_api_stop            = var.enable_stop_protection
   ebs_optimized               = var.ebs_optimized
-  iam_instance_profile        = var.instance_profile_data.create ? aws_iam_instance_profile.this.name : var.instance_profile_data.name
+  iam_instance_profile        = var.instance_profile_data.create ? aws_iam_instance_profile.this[0].name : var.instance_profile_data.name
 
-  key_name               = aws_key_pair.generated_key[each.key].key_name
+  key_name               = var.ssh_key_pair
   monitoring             = var.enable_detailed_monitoring
   subnet_id              = var.subnet_id
   user_data              = var.user_data
-  vpc_security_group_ids = var.security_group_data.create ? [aws_security_group.this.id] : var.security_group_data.security_group_ids
+  vpc_security_group_ids = var.security_group_data.create ? [aws_security_group.this[0].id] : var.security_group_data.security_group_ids
   private_ip             = var.private_ip
 
   metadata_options {
@@ -24,7 +24,6 @@ resource "aws_instance" "this" {
     http_tokens                 = var.instance_metadata_options.http_tokens
     instance_metadata_tags      = var.instance_metadata_options.instance_metadata_tags
   }
-
 
   root_block_device {
     delete_on_termination = var.root_block_device_data.delete_on_termination
@@ -46,6 +45,8 @@ resource "aws_instance" "this" {
   tags = merge({
     Name = var.name
   }, var.tags)
+
+  volume_tags = var.tags
 }
 
 #########################
@@ -63,7 +64,7 @@ resource "aws_ebs_volume" "this" {
   size              = each.value.size
   type              = each.value.type
 
-  tags = var.tags
+  tags = each.value.name == null ? var.tags : merge({ Name : each.value.name }, var.tags)
 }
 
 ######################
@@ -78,18 +79,6 @@ resource "aws_volume_attachment" "this" {
   instance_id = aws_instance.this.id
 }
 
-resource "tls_private_key" "ssh_key" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
-}
-##################
-# AWS Key Pair TODO:
-#################
-resource "aws_key_pair" "generated_key" {
-  key_name   = var.name
-  public_key = tls_private_key.ssh_key.public_key_openssh
-}
-
 data "aws_iam_policy_document" "ec2_ebs_kms" {
   statement {
     actions   = ["kms:*"]
@@ -102,17 +91,17 @@ data "aws_iam_policy_document" "ec2_ebs_kms" {
   }
 }
 
-resource "aws_kms_key" "this" {
-  for_each                = var.instances
-  description             = "KMS key for EC2 EBS encryption."
-  deletion_window_in_days = 30
-  enable_key_rotation     = true
-  policy                  = data.aws_iam_policy_document.ec2_ebs_kms.json
-}
+# resource "aws_kms_key" "this" {
+#   for_each                = var.instances
+#   description             = "KMS key for EC2 EBS encryption."
+#   deletion_window_in_days = 30
+#   enable_key_rotation     = true
+#   policy                  = data.aws_iam_policy_document.ec2_ebs_kms.json
+# }
 
-####################
+###########################
 # AWS Security Group
-#####################
+###########################
 
 resource "aws_security_group" "this" {
   count = var.security_group_data.create ? 1 : 0
@@ -154,17 +143,19 @@ resource "aws_security_group" "this" {
   }
 }
 
-########################
-# AWS IAM Instance Profile TODO:
-#########################
+########################################
+# AWS IAM Instance Profile
+########################################
 resource "aws_iam_instance_profile" "this" {
-  for_each = var.instances
-  name     = "${var.name}-profile"
+  count = var.instance_profile_data.create ? 1 : 0
+  name  = "${var.name}-profile"
+  role  = aws_iam_role.this[0].name
 }
 
 resource "aws_iam_role" "this" {
-  for_each = var.instances
-  name     = "${var.name}-role"
+  count = var.instance_profile_data.create ? 1 : 0
+
+  name = "${var.name}-role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -177,30 +168,24 @@ resource "aws_iam_role" "this" {
       }
     ]
   })
+
+  dynamic "inline_policy" {
+    for_each = var.instance_profile_data.policy_documents
+    content {
+      name   = inline_policy.value.name
+      policy = inline_policy.value.policy
+    }
+  }
+
+  managed_policy_arns = var.instance_profile_data.managed_policy_arns
+
 }
 
-########################
-# AWS IAM Policy Document
-#########################
-resource "aws_iam_role_policy" "ssm_params_and_secrets" {
-  for_each = var.instances
-  name     = "${var.name}-policy"
-  role     = aws_iam_role.this[each.key].id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["ssm:GetParameter", "secretsmanager:GetSecretValue"]
-        Resource = "*"
-      }
-    ]
-  })
-}
 
-resource "aws_eip" "lb" {
+resource "aws_eip" "this" {
+  count = var.associate_public_ip_address && var.assign_eip ? 1 : 0
+
   instance = aws_instance.this.id
   domain   = "vpc"
-
-  tags = var.tags
+  tags     = var.tags
 }

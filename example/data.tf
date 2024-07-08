@@ -1,37 +1,36 @@
-data "aws_vpc" "vpc" {
+data "aws_vpc" "this" {
   filter {
     name   = "tag:Name"
-    values = ["${var.namespace}-${var.environment}-vpc"]
+    values = ["${var.namespace}-poc-vpc"]
   }
 }
 
-data "aws_subnets" "public" {
+data "aws_ami" "amazon_linux" {
+  most_recent = true
+
   filter {
-    name = "tag:Name"
-    values = [
-      "${var.namespace}-${var.environment}-vpc-public-1",
-      "${var.namespace}-${var.environment}-vpc-public-2"
+    name   = "name"
+    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  owners = ["amazon"]
+}
+
+data "aws_iam_policy_document" "s3_read_list" {
+  statement {
+    actions = [
+      "s3:GetObject",
+      "s3:ListBucket",
+    ]
+
+    resources = [
+      "arn:aws:s3:::your-bucket-name",
+      "arn:aws:s3:::your-bucket-name/*",
     ]
   }
 }
-
-data "aws_subnet" "public" {
-  for_each = toset(data.aws_subnets.public.ids)
-  id       = each.value
-}
-
-data "aws_ami" "this" {
-  most_recent = true
-  owners      = ["self"]
-  filter {
-    name   = "tag:Name"
-    values = ["arc-test"] # Replace with your actual AMI name
-  }
-}
-
-data "aws_acm_certificate" "this" {
-  domain   = var.domain_name
-  statuses = ["ISSUED"] # Optional: Filter by certificate status, e.g., ISSUED, PENDING_VALIDATION, etc.
-}
-
-data "aws_availability_zones" "available" {}

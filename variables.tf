@@ -1,10 +1,5 @@
-variable "region" {
-  description = "The AWS region to deploy resources."
-  type        = string
-}
-
 variable "ami_id" {
-  description = "The AMI ID for the EC2 instances."
+  description = "The AMI ID for the EC2 instance."
   type        = string
 }
 
@@ -24,95 +19,10 @@ variable "private_ip" {
   default     = null
 }
 
-variable "subnet_ids" {
-  description = "List of subnet IDs where resources will be deployed."
-  type        = list(string)
-}
-
-variable "alb_name" {
-  description = "Name of the Application Load Balancer (ALB)."
-  type        = string
-}
-
-variable "target_group_name" {
-  description = "Name of the target group for ALB."
-  type        = string
-}
-
-variable "listener_port" {
-  description = "Port for the ALB listener."
-  type        = number
-}
-
-
 variable "associate_public_ip_address" {
   type        = bool
-  default     = true
+  default     = false
   description = "Associate a public IP address with the instance."
-}
-
-variable "instances" {
-  description = "Map of instances with configurations."
-  type = map(object({
-    name                         = string
-    instance_type                = string
-    associate_public_ip_address  = bool
-    disable_api_termination      = bool
-    disable_api_stop             = bool
-    ebs_optimized                = bool
-    monitoring                   = bool
-    subnet_id                    = string
-    user_data_raw                = string
-    metadata_endpoint_enabled    = string
-    metadata_options_http_tokens = string
-
-
-    ebs_volume_root = object({
-      iops       = number
-      kms_key_id = string
-      throughput = number
-      size       = number
-      type       = string
-    })
-    description = string
-    ingress_rules = list(object({
-      description       = string
-      from_port         = number
-      to_port           = number
-      protocol          = string
-      cidr_blocks       = list(string)
-      security_group_id = optional(string, "")
-      ipv6_cidr_blocks  = list(string)
-      self              = bool
-    }))
-    egress_rules = list(object({
-      description       = string
-      from_port         = number
-      to_port           = number
-      protocol          = string
-      cidr_blocks       = list(string)
-      security_group_id = optional(string, "")
-      ipv6_cidr_blocks  = list(string)
-    }))
-    tags = map(string)
-  }))
-}
-
-variable "ebs_volumes" {
-  description = "Map of EBS volumes to attach to instances"
-  type = map(object({
-    availability_zone = string
-    name              = string
-    size              = number
-    type              = string
-    iops              = number
-    throughput        = number
-    kms_key_id        = string
-    snapshot_id       = string
-    instance_key      = string
-    device_name       = string
-  }))
-  default = {}
 }
 
 variable "tags" {
@@ -142,6 +52,7 @@ variable "enable_termination_protection" {
 variable "enable_stop_protection" {
   type        = bool
   description = "(optional)  If true, enables EC2 Instance Stop Protection."
+  default     = false
 }
 
 variable "ebs_optimized" {
@@ -152,11 +63,21 @@ variable "ebs_optimized" {
 
 variable "instance_profile_data" {
   type = object({
-    name             = optional(string, null)
-    create           = optional(bool, false)
-    policy_documents = optional(map(string), {})
+    name   = optional(string, null)
+    create = optional(bool, false)
+    policy_documents = optional(list(object({
+      name   = string
+      policy = string
+    })), [])
+    managed_policy_arns = optional(list(string), [])
   })
   description = "(optional) IAM Instance Profile to launch the instance with. Specified as the name of the Instance Profile. "
+  default = {
+    name                = null
+    create              = false
+    policy_documents    = []
+    managed_policy_arns = []
+  }
 }
 
 variable "subnet_id" {
@@ -172,11 +93,11 @@ variable "user_data" {
 
 variable "instance_metadata_options" {
   type = object({
-    http_endpoint               = optional(bool, true)
-    http_protocol_ipv6          = optional(bool, false)
+    http_endpoint               = optional(string, "enabled")
+    http_protocol_ipv6          = optional(string, "disabled")
     http_put_response_hop_limit = optional(number, 1)
     http_tokens                 = optional(string, "required")
-    instance_metadata_tags      = optional(bool, false)
+    instance_metadata_tags      = optional(string, "disabled")
   })
   description = <<-EOT
   The metadata_options block supports the following:
@@ -188,11 +109,11 @@ variable "instance_metadata_options" {
   instance_metadata_tags - (Optional) Enables or disables access to instance tags from the instance metadata service. Valid values include enabled or disabled. Defaults to disabled.
   EOT
   default = {
-    http_endpoint               = true
-    http_protocol_ipv6          = false
+    http_endpoint               = "enabled"
+    http_protocol_ipv6          = "disabled"
     http_put_response_hop_limit = 1
     http_tokens                 = "required"
-    instance_metadata_tags      = false
+    instance_metadata_tags      = "disabled"
   }
 }
 
@@ -202,7 +123,7 @@ variable "root_block_device_data" {
     encrypted             = optional(bool, true)
     iops                  = optional(string, null)
     kms_key_id            = optional(string, null)
-    throughput            = string
+    throughput            = optional(number, null)
     volume_size           = string
     volume_type           = string
   })
@@ -223,6 +144,7 @@ variable "root_block_device_data" {
 
 variable "additional_ebs_volumes" {
   type = map(object({
+    name                  = optional(string, null)
     delete_on_termination = optional(bool, true)
     device_name           = string
     encrypted             = optional(bool, false)
@@ -234,8 +156,8 @@ variable "additional_ebs_volumes" {
 
   }))
   description = <<-EOT
-  (optional) ebs_block_device block supports the following:
-
+  (optional) `ebs_block_device` block supports the following:
+    name - (Optional) Name of the volume
     delete_on_termination - (Optional) Whether the volume should be destroyed on instance termination. Defaults to true.
     device_name - (Required) Name of the device to mount.
     encrypted - (Optional) Enables EBS encryption on the volume. Defaults to false. Cannot be used with snapshot_id. Must be configured to perform drift detection.
@@ -246,24 +168,26 @@ variable "additional_ebs_volumes" {
     throughput - (Optional) Throughput to provision for a volume in mebibytes per second (MiB/s). This is only valid for volume_type of gp3.
     volume_size - (Optional) Size of the volume in gibibytes (GiB).
     volume_type - (Optional) Type of volume. Valid values include standard, gp2, gp3, io1, io2, sc1, or st1. Defaults to gp2.
+
+    Device name : https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/device_naming.html
   EOT
+  default     = {}
 }
 
 variable "security_group_data" {
   type = object({
-    id                 = optional(string, null)
     create             = optional(bool, false)
-    description        = optional(string, null)
-    security_group_ids = optional(list(string), [])
     name               = optional(string, null)
+    description        = optional(string, null)
+    security_group_ids = optional(list(string))
     ingress_rules = optional(list(object({
       description      = optional(string, null)
       from_port        = string
       to_port          = string
       protocol         = string
       cidr_blocks      = list(string)
-      security_groups  = list(string)
-      ipv6_cidr_blocks = list(string)
+      security_groups  = optional(list(string), [])
+      ipv6_cidr_blocks = optional(list(string), [])
     })))
     egress_rules = optional(list(object({
       description      = optional(string, null)
@@ -271,9 +195,21 @@ variable "security_group_data" {
       to_port          = string
       protocol         = string
       cidr_blocks      = list(string)
-      security_groups  = list(string)
-      ipv6_cidr_blocks = list(string)
+      security_groups  = optional(list(string), [])
+      ipv6_cidr_blocks = optional(list(string), [])
     })))
   })
   description = "(optional) Security Group data"
+}
+
+variable "ssh_key_pair" {
+  type        = string
+  description = "(optional) SSH Key Pair for EC2 instance"
+  default     = null
+}
+
+variable "assign_eip" {
+  type        = bool
+  description = "(optional) Whether to assign Elastic IP address, note `associate_public_ip_address` has to be enabled"
+  default     = false
 }
