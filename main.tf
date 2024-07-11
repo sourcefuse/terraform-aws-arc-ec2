@@ -158,7 +158,6 @@ resource "aws_iam_role" "this" {
 
 }
 
-
 resource "aws_eip" "this" {
   count = var.associate_public_ip_address && var.assign_eip ? 1 : 0
 
@@ -166,7 +165,6 @@ resource "aws_eip" "this" {
   domain   = "vpc"
   tags     = var.tags
 }
-
 
 ## Create Load Balancer
 module "load_balancer" {

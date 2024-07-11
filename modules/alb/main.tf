@@ -58,6 +58,7 @@ resource "aws_lb" "this" {
   ip_address_type                             = var.ip_address_type
   drop_invalid_header_fields                  = var.drop_invalid_header_fields
 
+  # sonarlint-disable-next-line terraform:S6258
   dynamic "access_logs" {
     for_each = var.access_logs.enabled ? [1] : []
     content {
