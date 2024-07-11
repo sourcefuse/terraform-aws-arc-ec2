@@ -46,7 +46,7 @@ variable "instance_type" {
 variable "enable_termination_protection" {
   type        = bool
   description = "(optional) If true, enables EC2 Instance Termination Protection."
-  default     = false
+  default     = true
 }
 
 variable "enable_stop_protection" {
@@ -238,7 +238,7 @@ variable "load_balancer_data" {
     desync_mitigation_mode                      = optional(string, "defensive")
     xff_header_processing_mode                  = optional(string, "append")
     ip_address_type                             = optional(string, "ipv4")
-    drop_invalid_header_fields                  = optional(bool, false)
+    drop_invalid_header_fields                  = optional(bool, true)
   })
   description = "(optional) describe your variable"
   default = {
