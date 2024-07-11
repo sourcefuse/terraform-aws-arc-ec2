@@ -21,4 +21,7 @@ module "ec2_instances" {
   }
   additional_ebs_volumes = local.additional_ebs_volumes
 
+  load_balancer_data = local.load_balancer_data
+  target_groups      = local.target_groups
+
 }

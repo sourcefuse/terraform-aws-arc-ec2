@@ -57,7 +57,7 @@ variable "enable_stop_protection" {
 
 variable "ebs_optimized" {
   type        = bool
-  description = "(optional) (Optional) If true, the launched EC2 instance will be EBS-optimized. Note that if this is not set on an instance type that is optimized by default then this will show as disabled but if the instance type is optimized by default then there is no need to set this and there is no effect to disabling it."
+  description = "(optional) If true, the launched EC2 instance will be EBS-optimized. Note that if this is not set on an instance type that is optimized by default then this will show as disabled but if the instance type is optimized by default then there is no need to set this and there is no effect to disabling it."
   default     = false
 }
 
@@ -88,6 +88,12 @@ variable "subnet_id" {
 variable "user_data" {
   type        = string
   description = "(optional) User data to provide when launching the instance. Do not pass gzip-compressed data via this argument; see user_data_base64 instead. Updates to this field will trigger a stop/start of the EC2 instance by default. "
+  default     = null
+}
+
+variable "user_data_base64" {
+  type        = string
+  description = "(optional) Can be used instead of `user_data` to pass base64-encoded binary data directly. Use this instead of `user_data` whenever the value is not a valid UTF-8 string. For example, gzip-encoded user data must be base64-encoded and passed via this argument to avoid corruption"
   default     = null
 }
 
@@ -151,8 +157,8 @@ variable "additional_ebs_volumes" {
     iops                  = optional(string, null)
     kms_key_id            = optional(string, null)
     throughput            = optional(string, null)
-    volume_size           = number
-    volume_type           = optional(string, "gp2")
+    size                  = number
+    type                  = optional(string, "gp2")
 
   }))
   description = <<-EOT
@@ -212,4 +218,150 @@ variable "assign_eip" {
   type        = bool
   description = "(optional) Whether to assign Elastic IP address, note `associate_public_ip_address` has to be enabled"
   default     = false
+}
+
+variable "load_balancer_data" {
+  type = object({
+    create                                      = bool
+    name                                        = string
+    internal                                    = optional(bool, false)
+    load_balancer_type                          = optional(string, "application")
+    subnets                                     = list(string)
+    enable_deletion_protection                  = optional(bool, false)
+    idle_timeout                                = optional(number, 60)
+    enable_cross_zone_load_balancing            = optional(bool, false)
+    enable_http2                                = optional(bool, true)
+    enable_tls_version_and_cipher_suite_headers = optional(bool, false)
+    enable_xff_client_port                      = optional(bool, false)
+    preserve_host_header                        = optional(bool, true)
+    enable_waf_fail_open                        = optional(bool, false)
+    desync_mitigation_mode                      = optional(string, "defensive")
+    xff_header_processing_mode                  = optional(string, "append")
+    ip_address_type                             = optional(string, "ipv4")
+    drop_invalid_header_fields                  = optional(bool, false)
+  })
+  description = "(optional) describe your variable"
+  default = {
+    create  = false
+    name    = null
+    subnets = []
+  }
+}
+
+variable "load_balancer_security_group_data" {
+  type = object({
+    create             = optional(bool, false)
+    name               = optional(string, null)
+    description        = optional(string, null)
+    security_group_ids = optional(list(string))
+    ingress_rules = optional(list(object({
+      description      = optional(string, null)
+      from_port        = string
+      to_port          = string
+      protocol         = string
+      cidr_blocks      = list(string)
+      security_groups  = optional(list(string), [])
+      ipv6_cidr_blocks = optional(list(string), [])
+    })))
+    egress_rules = optional(list(object({
+      description      = optional(string, null)
+      from_port        = string
+      to_port          = string
+      protocol         = string
+      cidr_blocks      = list(string)
+      security_groups  = optional(list(string), [])
+      ipv6_cidr_blocks = optional(list(string), [])
+    })))
+  })
+  description = "(optional) Security Group data for Loadbalancer"
+  default = {
+    create = true
+    ingress_rules = [
+      {
+        description = "Allow http port"
+        from_port   = 80
+        to_port     = 80
+        protocol    = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+      },
+      {
+        description = "Allow https port"
+        from_port   = 443
+        to_port     = 443
+        protocol    = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+      }
+    ]
+    egress_rules = [{
+      description = "Allow All outbound calls"
+      from_port   = 0
+      to_port     = 0
+      protocol    = -1
+      cidr_blocks = ["0.0.0.0/0"]
+    }]
+  }
+}
+
+variable "load_balancer_create_timeout" {
+  type        = string
+  default     = "10m"
+  description = "Timeout value when creating the ALB."
+}
+
+variable "load_balancer_delete_timeout" {
+  type        = string
+  default     = "10m"
+  description = "Timeout value when deleting the ALB."
+}
+
+variable "load_balancer_update_timeout" {
+  type        = string
+  default     = "10m"
+  description = "Timeout value when updating the ALB."
+}
+
+variable "target_groups" {
+  type = map(object({
+    port     = number
+    protocol = string
+
+    health_check = object({
+      enabled             = optional(bool, true)
+      healthy_threshold   = optional(number, 3)
+      unhealthy_threshold = optional(number, 3)
+      path                = optional(string, "/")
+      timeout             = optional(number, 20)
+      interval            = optional(number, 30)
+      matcher             = optional(string, "200")
+    })
+
+    listeners = list(object({
+      port            = string
+      protocol        = string
+      ssl_policy      = optional(string, "ELBSecurityPolicy-TLS13-1-2-2021-06")
+      certificate_arn = optional(string, null)
+
+      default_action = object({
+        type = string // valid values : redirect,fixed-response,forward if forward , then target_group_arn = aws_lb_target_group.this.arn
+        redirect = optional(object({
+          port        = number
+          protocol    = string
+          status_code = string
+        }), null)
+
+        fixed_response = optional(object({
+          content_type = string
+          message_body = string
+          status_code  = optional(string, "200")
+        }), null)
+
+    }) }))
+
+    target = object({
+      port = number
+    })
+
+  }))
+  description = "Target Group details "
+  default     = {}
 }

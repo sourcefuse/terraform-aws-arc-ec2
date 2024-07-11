@@ -14,6 +14,7 @@ resource "aws_instance" "this" {
   monitoring             = var.enable_detailed_monitoring
   subnet_id              = var.subnet_id
   user_data              = var.user_data
+  user_data_base64       = var.user_data_base64
   vpc_security_group_ids = var.security_group_data.create ? [aws_security_group.this[0].id] : var.security_group_data.security_group_ids
   private_ip             = var.private_ip
 
@@ -49,9 +50,9 @@ resource "aws_instance" "this" {
   volume_tags = var.tags
 }
 
-#########################
+#############################
 # Additional EBS Volumes
-#########################
+#############################
 
 resource "aws_ebs_volume" "this" {
   for_each = var.additional_ebs_volumes
@@ -67,10 +68,6 @@ resource "aws_ebs_volume" "this" {
   tags = each.value.name == null ? var.tags : merge({ Name : each.value.name }, var.tags)
 }
 
-######################
-# AWS Volume Attachment
-######################
-
 resource "aws_volume_attachment" "this" {
   for_each = var.additional_ebs_volumes
 
@@ -78,26 +75,6 @@ resource "aws_volume_attachment" "this" {
   volume_id   = aws_ebs_volume.this[each.key].id
   instance_id = aws_instance.this.id
 }
-
-data "aws_iam_policy_document" "ec2_ebs_kms" {
-  statement {
-    actions   = ["kms:*"]
-    resources = ["*"]
-    effect    = "Allow"
-    principals {
-      type        = "AWS"
-      identifiers = ["*"]
-    }
-  }
-}
-
-# resource "aws_kms_key" "this" {
-#   for_each                = var.instances
-#   description             = "KMS key for EC2 EBS encryption."
-#   deletion_window_in_days = 30
-#   enable_key_rotation     = true
-#   policy                  = data.aws_iam_policy_document.ec2_ebs_kms.json
-# }
 
 ###########################
 # AWS Security Group
@@ -188,4 +165,39 @@ resource "aws_eip" "this" {
   instance = aws_instance.this.id
   domain   = "vpc"
   tags     = var.tags
+}
+
+
+## Create Load Balancer
+module "load_balancer" {
+  source = "./modules/alb"
+  count  = var.load_balancer_data.create ? 1 : 0
+
+  name                                        = var.load_balancer_data.name
+  vpc_id                                      = var.vpc_id
+  internal                                    = var.load_balancer_data.internal
+  load_balancer_type                          = var.load_balancer_data.load_balancer_type
+  security_group_data                         = var.load_balancer_security_group_data
+  subnets                                     = var.load_balancer_data.subnets
+  enable_deletion_protection                  = var.load_balancer_data.enable_deletion_protection
+  idle_timeout                                = var.load_balancer_data.idle_timeout
+  enable_cross_zone_load_balancing            = var.load_balancer_data.enable_cross_zone_load_balancing
+  enable_http2                                = var.load_balancer_data.enable_http2
+  enable_tls_version_and_cipher_suite_headers = var.load_balancer_data.enable_tls_version_and_cipher_suite_headers
+  enable_xff_client_port                      = var.load_balancer_data.enable_xff_client_port
+  preserve_host_header                        = var.load_balancer_data.preserve_host_header
+  enable_waf_fail_open                        = var.load_balancer_data.enable_waf_fail_open
+  desync_mitigation_mode                      = var.load_balancer_data.desync_mitigation_mode
+  xff_header_processing_mode                  = var.load_balancer_data.xff_header_processing_mode
+  ip_address_type                             = var.load_balancer_data.ip_address_type
+  drop_invalid_header_fields                  = var.load_balancer_data.drop_invalid_header_fields
+
+  target_groups = var.target_groups
+  target_id     = aws_instance.this.id
+
+  load_balancer_create_timeout = var.load_balancer_create_timeout
+  load_balancer_delete_timeout = var.load_balancer_delete_timeout
+  load_balancer_update_timeout = var.load_balancer_update_timeout
+
+  tags = var.tags
 }

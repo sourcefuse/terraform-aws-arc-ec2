@@ -39,10 +39,62 @@ locals {
       # iops                  = optional(string, null)
       # kms_key_id            = optional(string, null)
       # throughput            = optional(string, null)
-      volume_size = 20
-      volume_type = "gp3"
+      size = 20
+      type = "gp3"
 
   } }
+
+  target_groups = {
+    "group-1" = {
+      port     = 80
+      protocol = "HTTP"
+
+      health_check = {
+        path     = "/"
+        timeout  = 20
+        interval = 30
+      }
+      listeners = [
+        {
+          port       = "80"
+          protocol   = "HTTP"
+          ssl_policy = null
+
+          default_action = {
+            type = "redirect"
+            redirect = {
+              port        = 443
+              protocol    = "HTTPS"
+              status_code = "HTTP_301"
+            }
+          }
+
+        },
+        {
+          port            = "443"
+          protocol        = "HTTPS"
+          ssl_policy      = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+          certificate_arn = "arn:aws:acm:us-east-1:884360309640:certificate/7e4d8c74-46e7-4d99-a523-6db4336d9a0a"
+
+          default_action = {
+            type = "forward"
+          }
+        }
+      ]
+      target = {
+        port = 80
+      }
+    }
+  }
+
+  load_balancer_data = {
+    create  = true
+    name    = "${var.namespace}-${var.environment}-alb"
+    subnets = data.aws_subnets.public.ids
+  }
+
+
+
 
 
 }

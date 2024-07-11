@@ -34,3 +34,13 @@ data "aws_iam_policy_document" "s3_read_list" {
     ]
   }
 }
+
+data "aws_subnets" "public" {
+  filter {
+    name = "tag:Name"
+
+    values = [
+      "${var.namespace}-poc-public-*"
+    ]
+  }
+}
