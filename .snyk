@@ -9,7 +9,5 @@ ignore:
         expires: 2025-04-01T00:00:00.000Z
         created: 2023-02-28T18:20:39.256Z
   SNYK-CC-AWS-405:
-    - 'modules/alb/main.tf > resource > aws_lb[this] > ':
+    - 'modules/alb/main.tf > resource > aws_lb[this]':
         reason: Value is set by upstream module
-        expires: 2025-04-01T00:00:00.000Z
-        created: 2024-07-10T18:20:39.256Z
