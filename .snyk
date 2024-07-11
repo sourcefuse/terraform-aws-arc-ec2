@@ -18,3 +18,18 @@ ignore:
         reason: Value is set by upstream module
         expires: 2025-04-01T00:00:00.000Z
         created: 2024-07-10T18:20:39.256Z
+  SNYK-CC-AWS-405:
+    - 'main.tf > resource > aws_instance[this] > disable_api_termination':
+        reason: Value is set by upstream module
+        expires: 2025-04-01T00:00:00.000Z
+        created: 2024-07-10T18:20:39.256Z
+  SNYK-CC-TF-3:
+    - 'main.tf > input > resource > aws_ebs_volume[this] > encrypted':
+        reason: Value is set by upstream module
+        expires: 2025-04-01T00:00:00.000Z
+        created: 2024-07-10T18:20:39.256Z
+  SNYK-CC-TF-53:
+    - 'main.tf > resource > aws_instance[this] > root_block_device > encrypted':
+        reason: Value is set by upstream module
+        expires: 2025-04-01T00:00:00.000Z
+        created: 2024-07-10T18:20:39.256Z
