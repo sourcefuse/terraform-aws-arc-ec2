@@ -229,3 +229,13 @@ variable "web_acl_arn" {
   description = "(optional) WAF Web ACL ARN"
   default     = null
 }
+
+variable "access_logs" {
+  type = object({
+    bucket  = string
+    prefix  = optional(string, "")
+    enabled = optional(bool, false)
+  })
+  description = "(optional) describe your variable"
+  default     = null
+}

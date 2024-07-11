@@ -58,6 +58,15 @@ resource "aws_lb" "this" {
   ip_address_type                             = var.ip_address_type
   drop_invalid_header_fields                  = var.drop_invalid_header_fields
 
+  dynamic "access_logs" {
+    for_each = var.access_logs.enabled ? [1] : []
+    content {
+      bucket  = access_logs.value.bucket
+      prefix  = access_logs.value.prefix
+      enabled = access_logs.value.enabled
+    }
+  }
+
   timeouts {
     create = var.load_balancer_create_timeout
     delete = var.load_balancer_delete_timeout
