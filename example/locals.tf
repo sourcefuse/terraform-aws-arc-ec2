@@ -36,12 +36,8 @@ locals {
       name        = "vol-1"
       device_name = "/dev/sdb"
       encrypted   = true
-      # iops                  = optional(string, null)
-      # kms_key_id            = optional(string, null)
-      # throughput            = optional(string, null)
-      size = 20
-      type = "gp3"
-
+      size        = 20
+      type        = "gp3"
   } }
 
   target_groups = {
@@ -74,7 +70,7 @@ locals {
           port            = "443"
           protocol        = "HTTPS"
           ssl_policy      = "ELBSecurityPolicy-TLS13-1-2-2021-06"
-          certificate_arn = "arn:aws:acm:us-east-1:884360309640:certificate/7e4d8c74-46e7-4d99-a523-6db4336d9a0a"
+          certificate_arn = "arn:aws:acm:us-east-1:xxxx:certificate/xx-xx-xx-xx-xx"
 
           default_action = {
             type = "forward"
@@ -92,9 +88,5 @@ locals {
     name    = "${var.namespace}-${var.environment}-alb"
     subnets = data.aws_subnets.public.ids
   }
-
-
-
-
 
 }

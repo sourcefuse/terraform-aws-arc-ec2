@@ -1,5 +1,5 @@
 # Contributing to AWS ARC Security
-Thank you for considering contributing to AWS ARC Security! We appreciate your time and effort.
+Thank you for considering contributing to AWS ARC EC2! We appreciate your time and effort.
 To ensure a smooth collaboration, please take a moment to review the following guidelines.
 
 ## How to Contribute

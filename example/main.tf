@@ -2,6 +2,14 @@ provider "aws" {
   region = "us-east-1"
 }
 
+module "tags" {
+  source  = "sourcefuse/arc-tags/aws"
+  version = "1.2.3"
+
+  environment = var.environment
+  project     = "poc"
+}
+
 
 module "ec2_instances" {
   source = "../"
@@ -23,5 +31,7 @@ module "ec2_instances" {
 
   load_balancer_data = local.load_balancer_data
   target_groups      = local.target_groups
+
+  tags = module.tags.tags
 
 }

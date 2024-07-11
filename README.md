@@ -1,18 +1,25 @@
-# [terraform-aws-arc-cicd](https://github.com/sourcefuse/terraform-aws-arc-cicd)
+![Module Structure](./static/banner.png)
+# [terraform-aws-arc-ec2](https://github.com/sourcefuse/terraform-aws-arc-ec2)
 
-<a href="https://github.com/sourcefuse/terraform-aws-arc-cicd/releases/latest"><img src="https://img.shields.io/github/release/sourcefuse/terraform-aws-arc-cicd.svg?style=for-the-badge" alt="Latest Release"/></a> <a href="https://github.com/sourcefuse/terraform-aws-arc-cicd/commits"><img src="https://img.shields.io/github/last-commit/sourcefuse/terraform-aws-arc-cicd.svg?style=for-the-badge" alt="Last Updated"/></a> ![Terraform](https://img.shields.io/badge/terraform-%235835CC.svg?style=for-the-badge&logo=terraform&logoColor=white) ![GitHub Actions](https://img.shields.io/badge/github%20actions-%232671E5.svg?style=for-the-badge&logo=githubactions&logoColor=white)
+<a href="https://github.com/sourcefuse/terraform-aws-arc-ec2/releases/latest"><img src="https://img.shields.io/github/release/sourcefuse/terraform-aws-arc-ec2.svg?style=for-the-badge" alt="Latest Release"/></a> <a href="https://github.com/sourcefuse/terraform-aws-arc-ec2/commits"><img src="https://img.shields.io/github/last-commit/sourcefuse/terraform-aws-arc-ec2.svg?style=for-the-badge" alt="Last Updated"/></a> ![Terraform](https://img.shields.io/badge/terraform-%235835CC.svg?style=for-the-badge&logo=terraform&logoColor=white) ![GitHub Actions](https://img.shields.io/badge/github%20actions-%232671E5.svg?style=for-the-badge&logo=githubactions&logoColor=white)
 
 
-[![Quality gate](https://sonarcloud.io/api/project_badges/quality_gate?project=sourcefuse_terraform-aws-arc-cicd&token=b697edbb45222daad2f3184fdb06b908aec00460)](https://sonarcloud.io/summary/new_code?id=sourcefuse_terraform-aws-arc-cicd)
+[![Quality gate](https://sonarcloud.io/api/project_badges/quality_gate?project=sourcefuse_terraform-aws-arc-ec2&token=1a62ef6cfb038e1446e26868afd2b88a0dd91f85)](https://sonarcloud.io/summary/new_code?id=sourcefuse_terraform-aws-arc-ec2)  
 
-[![Known Vulnerabilities](https://github.com/sourcefuse/terraform-aws-arc-cicd/actions/workflows/snyk.yaml/badge.svg)](https://github.com/sourcefuse/terraform-aws-arc-cicd/actions/workflows/snyk.yaml)
+[![Known Vulnerabilities](https://github.com/sourcefuse/terraform-aws-arc-ec2/actions/workflows/snyk.yaml/badge.svg)](https://github.com/sourcefuse/terraform-aws-arc-ec2/actions/workflows/snyk.yaml)
 ## Overview
 
-For more information about this repository and its usage, please see [Terraform AWS ARC GitHub CICD Module Usage Guide](https://github.com/sourcefuse/terraform-aws-arc-cicd/blob/main/docs/module-usage-guide/README.md).
+For more information about this repository and its usage, please see [Terraform AWS ARC GitHub EC2 Module Usage Guide](https://github.com/sourcefuse/terraform-aws-arc-ec2/blob/main/docs/module-usage-guide/README.md).
 
 ## Introduction
 
-SourceFuse's AWS Reference Architecture (ARC) Terraform module automates the creation of AWS CodePipeline and CodeBuild projects, facilitating the build and deployment of both application code and Terraform modules. By defining reusable CodeBuild projects, it ensures consistent and efficient build processes that can be shared across multiple CodePipelines. This approach promotes standardization and reduces redundancy in the CI/CD pipeline configuration.
+SourceFuse's AWS Reference Architecture (ARC) Terraform module simplifies the creation and management of essential AWS infrastructure components. It is designed to provision and configure the following resources:
+
+1. EC2 Instances: Deploys and manages one or more EC2 instances, with customizable instance types, AMIs, key pairs, and network configurations.
+2. Volumes: Attaches EBS volumes to the EC2 instances for persistent storage, with options to specify volume size, type, and IOPS.
+3. Load Balancer: Creates an Elastic Load Balancer (ELB) to distribute incoming traffic across multiple EC2 instances, ensuring high availability and reliability. It supports both application (ALB) and network load balancers (NLB).
+4. Security Groups: Defines and manages security groups to control inbound and outbound traffic to the EC2 instances and load balancers, enhancing network security.
+5. EC2 Instance Profile: Creates and attaches an instance profile with IAM roles and policies to the EC2 instances, allowing them to interact with other AWS services securely.
 
 ### Prerequisites
 Before using this module, ensure you have the following:
@@ -30,7 +37,7 @@ Initially, it's essential to define a Terraform module, which is organized as a 
 
 
 ```plaintext
-billing/
+ec2/
 |-- main.tf
 |-- variables.tf
 |-- outputs.tf
@@ -45,16 +52,27 @@ Inside the `variables.tf` or in `*.tfvars` file, you should define values for th
 In your main Terraform configuration file (e.g., main.tf), you can use the module. Specify the source of the module, and version, For Example
 
 ```hcl
-module "pipelines" {
-  source = "sourcefuse/arc-cicd/aws"
+module "ec2" {
+  source = "sourcefuse/arc-ec2/aws"
+  version = "0.0.1"
 
-  artifacts_bucket    = local.artifacts_bucket
-  codestar_connection = local.codestar_connection
+  name                  = "${var.namespace}-${var.environment}-test"
+  instance_type         = "t3.small"
+  ami_id                = data.aws_ami.amazon_linux.id
+  vpc_id                = data.aws_vpc.this.id
+  subnet_id             = "subnet-066d0c78479b72e77"
+  private_ip            = "10.12.134.2"
+  instance_profile_data = local.instance_profile_data
+  security_group_data   = local.security_group_data
 
-  role_data          = local.role_data
-  codebuild_projects = local.codebuild_projects
-  codepipelines      = local.codepipeline_data
-  chatbot_data       = local.chatbot_data
+  root_block_device_data = {
+    volume_size = 10
+    volume_type = "gp3"
+  }
+  additional_ebs_volumes = local.additional_ebs_volumes
+
+  load_balancer_data = local.load_balancer_data
+  target_groups      = local.target_groups
 
   tags = module.tags.tags
 }
@@ -65,11 +83,29 @@ module "pipelines" {
 Inside the `outputs.tf` file of the module, you can define output values that can be referenced in the main configuration. For example:
 
 ```hcl
-output "chatbot_sns_arns" {
-  description = "SNS topics created by AWS Chatbot"
-  value       = module.example.chatbot_sns_arns
+output "instance_id" {
+  description = "Instance ID"
+  value       = module.ec2_instances.id
 }
 
+output "instance_arn" {
+  description = "Instance ARN"
+  value       = module.ec2_instances.arn
+}
+
+output "load_balancer_arn" {
+  value = module.ec2_instances.load_balancer_arn
+}
+
+output "listener_arn" {
+  description = "Listener ARN"
+  value       = module.ec2_instances.listener_arn
+}
+
+output "target_group_arn" {
+  description = "Target Group ARN"
+  value       = module.ec2_instances.target_group_arn
+}
 
 ```
 
@@ -77,214 +113,109 @@ output "chatbot_sns_arns" {
 
 Inside the `.tfvars` file of the module, you can provide desired values that can be referenced in the main configuration. For example:
 
-Edit the [locals.tf](./examples/application/locals.tf) file and provide desired values.  
+Edit the [locals.tf](./examples/locals.tf) file and provide desired values.  
 
-`artifacts_bucket` -  S3 Bucket name where artifacts are stored
+`security_group_data` -  Security Group details for EC2 instance
 
-`codestar_connection` - Codestar connection for authenticating to Github
+`instance_profile_data` - EC2 instance profile
 
-`role_data` - Details about Roles to be created for Codepipeline and Codebuild projects
+`additional_ebs_volumes` - Additional EBS volume details
 
-`codebuild_projects` -  List of Codebuild projects to be created
+`target_groups` -  Target Group details for Load balancer
 
-`codepipelines` - Codepipelines to be created
-
-`chatbot_data` - local.chatbot_data
+`load_balancer_data` - Details to create Load balancer
 
 
 ```hcl
 locals {
 
-  environment_role = {
-    dev = "arn:aws:iam::xxxx:role/example-dev-cicd-role"
-  }
-
-  branch_map = {
-    dev = {
-      terraform = "dev"
-    }
-    poc = {
-      terraform = "stg"
-    }
-  }
-
-  prefix              = "${var.namespace}-${var.environment}"
-  codestar_connection = "Github-Connection"
-  artifacts_bucket    = "${local.prefix}-pipeline-artifacts"
-
-  policies = [{
-    policy_document = data.aws_iam_policy_document.pipeline.json
-    policy_name     = "pipeline-policy-to-reject"
-  }]
-
-  chatbot_data = {
-    name                     = "${var.namespace}-slack"
-    slack_channel_id         = "C0xxxxxxx5"
-    slack_workspace_id       = "T0xxxxxxRT"
-    managed_policy_arns      = ["arn:aws:iam::aws:policy/AWSCodePipeline_FullAccess"]
-    guardrail_policies       = ["arn:aws:iam::aws:policy/AWSCodePipeline_FullAccess"]
-    role_polices             = local.policies
-    enable_slack_integration = true
-  }
-
-  notification_event_and_type = {
-    event_type_ids = [
-      "codepipeline-pipeline-pipeline-execution-failed",
-      "codepipeline-pipeline-pipeline-execution-canceled",
-      "codepipeline-pipeline-pipeline-execution-started",
-      "codepipeline-pipeline-pipeline-execution-resumed",
-      "codepipeline-pipeline-pipeline-execution-succeeded",
-      "codepipeline-pipeline-pipeline-execution-superseded",
-      "codepipeline-pipeline-manual-approval-failed",
-      "codepipeline-pipeline-manual-approval-needed"
-    ]
-    targets = [{
-      address = "arn:aws:chatbot::${data.aws_caller_identity.current.account_id}:chat-configuration/slack-channel/${var.namespace}-slack" // it should match chatbot_data.name
-      type    = "AWSChatbotSlack"                                                                                                         // Type can be "SNS" , AWSChatbotSlack etc
+  security_group_data = {
+    create             = true
+    name               = "${var.namespace}-${var.environment}-sg"
+    security_group_ids = []
+    ingress_rules = [{
+      description = "Allow SSH"
+      from_port   = 22
+      to_port     = 22
+      protocol    = "tcp"
+      cidr_blocks = [data.aws_vpc.this.cidr_block]
+    }]
+    egress_rules = [{
+      description = "Allow All outbound calls"
+      from_port   = 0
+      to_port     = 0
+      protocol    = -1
+      cidr_blocks = ["0.0.0.0/0"]
     }]
   }
 
-  // IAM roles has to be created before creating Codebuild project and Codepipeline
-  role_data = {
-    "${local.prefix}-codepipeline-role" = {
-      pipeline_service                    = "codepipeline"
-      assume_role_arns                    = []
-      github_secret_arn                   = null
-      terraform_state_s3_bucket           = null
-      dynamodb_lock_table                 = null
-      additional_iam_policy_doc_json_list = []
-    },
-    "${local.prefix}-codebuild-terraform" = {
-      pipeline_service                    = "codebuild"
-      assume_role_arns                    = [local.environment_role[var.environment], "arn:aws:iam::1111xxxx1111:role/example-management-mrr-role"]
-      github_secret_arn                   = null
-      terraform_state_s3_bucket           = "example-shared-services-terraform-state"
-      dynamodb_lock_table                 = "example-shared-services-terraform-state-lock"
-      additional_iam_policy_doc_json_list = []
+  instance_profile_data = {
+    name   = "${var.namespace}-${var.environment}-test-profile"
+    create = true
+    policy_documents = [
+      {
+        name   = "s3-read"
+        policy = data.aws_iam_policy_document.s3_read_list.json
+      }
+    ]
+  }
+
+  additional_ebs_volumes = {
+    "vol-1" = {
+      name        = "vol-1"
+      device_name = "/dev/sdb"
+      encrypted   = true
+      size = 20
+      type = "gp3"
+  } }
+
+  target_groups = {
+    "group-1" = {
+      port     = 80
+      protocol = "HTTP"
+
+      health_check = {
+        path     = "/"
+        timeout  = 20
+        interval = 30
+      }
+      listeners = [
+        {
+          port       = "80"
+          protocol   = "HTTP"
+          ssl_policy = null
+
+          default_action = {
+            type = "redirect"
+            redirect = {
+              port        = 443
+              protocol    = "HTTPS"
+              status_code = "HTTP_301"
+            }
+          }
+
+        },
+        {
+          port            = "443"
+          protocol        = "HTTPS"
+          ssl_policy      = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+          certificate_arn = "arn:aws:acm:us-east-1:xxxx:certificate/xx-xx-xx-xx-xx"
+
+          default_action = {
+            type = "forward"
+          }
+        }
+      ]
+      target = {
+        port = 80
+      }
     }
   }
 
-  // Codebuild projects have to be created before creating Codepipelines
-  codebuild_projects = {
-    "${local.prefix}-terraform-plan" = {
-      description       = "Codebuild project for Terraform Plan"
-      build_type        = "Terraform"
-      terraform_version = "terraform-1.8.3-1.x86_64"
-      buildspec_file    = null
-      role_data = {
-        name = "${local.prefix}-codebuild-terraform"
-      }
-      artifacts_bucket    = local.artifacts_bucket
-      buildspec_file_name = "buildspec-tf-apply"
-    },
-    "${local.prefix}-terraform-apply" = {
-      description       = "Codebuild project for Terraform Apply"
-      build_type        = "Terraform"
-      terraform_version = "terraform-1.8.3-1.x86_64"
-      buildspec_file    = null
-      role_data = {
-        name = "${local.prefix}-codebuild-terraform"
-      }
-      artifacts_bucket    = local.artifacts_bucket
-      buildspec_file_name = "buildspec-tf-apply"
-    }
-  }
-
-
-  codepipeline_data = {
-    "${local.prefix}-terrafomr-module" = {
-      codestar_connection       = local.codestar_connection
-      artifacts_bucket          = local.artifacts_bucket
-      artifact_store_s3_kms_arn = null
-      auto_trigger              = false
-
-      source_repositories = [
-        {
-          name              = "TF-Source"
-          output_artifacts  = ["tf_source_output"]
-          github_repository = "githuborg/tf-mono-infra"
-          github_branch     = local.branch_map[var.environment].terraform
-          auto_trigger      = false
-        }
-      ]
-
-
-      pipeline_stages = [
-        {
-          stage_name       = "Terraform-Plan"
-          name             = "Terraform-Plan"
-          input_artifacts  = ["tf_source_output"]
-          output_artifacts = ["tf_plan_output"]
-          version          = "1"
-          project_name     = "${local.prefix}-terraform-plan" # This has to match the Codebuild project name
-          environment_variables = [
-            {
-              name  = "ENVIRONMENT",
-              value = var.environment
-            },
-            {
-              name  = "TF_VAR_FILE",
-              value = "tfvars/${var.environment}.tfvars"
-            },
-            {
-              name  = "WORKING_DIR",
-              value = "terraform/example-module"
-            },
-            {
-              name  = "BACKEND_CONFIG_FILE",
-              value = "backend/config.shared-services.hcl"
-            },
-            {
-              name  = "WORKSPACE",
-              value = var.environment
-            }
-          ]
-        },
-        {
-          stage_name = "Approval"
-          name       = "Approval"
-          category   = "Approval"
-          provider   = "Manual"
-          version    = "1"
-        },
-        {
-          stage_name       = "Terraform-Apply"
-          name             = "Terraform-Apply"
-          input_artifacts  = ["tf_plan_output"]
-          output_artifacts = ["tf_apply_output"]
-          version          = "1"
-          project_name     = "${local.prefix}-terraform-apply" # This has to match the Codebuild project name
-          environment_variables = [
-            {
-              name  = "ENVIRONMENT",
-              value = var.environment
-            },
-            {
-              name  = "TF_VAR_FILE",
-              value = "tfvars/${var.environment}.tfvars"
-            },
-            {
-              name  = "WORKING_DIR",
-              value = "terraform/example-module"
-            },
-            {
-              name  = "BACKEND_CONFIG_FILE",
-              value = "backend/config.shared-services.hcl"
-            },
-            {
-              name  = "WORKSPACE",
-              value = var.environment
-            }
-          ]
-        }
-      ]
-      role_data = {
-        name = "${local.prefix}-codepipeline-role"
-      }
-      notification_data = {
-        "${local.prefix}--api-notification" = local.notification_event_and_type // "${local.prefix}--api-notification" name has to be unique for each pipeline
-      }
-    }
+  load_balancer_data = {
+    create  = true
+    name    = "${var.namespace}-${var.environment}-alb"
+    subnets = data.aws_subnets.public.ids
   }
 
 }
@@ -305,12 +236,12 @@ terraform workspace new dev
 
 Plan Terraform
 ```shell
-terraform plan -var-file dev.tfvars
+terraform plan -var-file terraform.tfvars
 ```
 
 Apply Terraform
 ```shell
-terraform apply -var-file dev.tfvars
+terraform apply -var-file terraform.tfvars
 ```
 
 ## Production Setup
