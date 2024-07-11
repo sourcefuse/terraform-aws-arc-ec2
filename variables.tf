@@ -46,7 +46,7 @@ variable "instance_type" {
 variable "enable_termination_protection" {
   type        = bool
   description = "(optional) If true, enables EC2 Instance Termination Protection."
-  default     = true
+  default     = false
 }
 
 variable "enable_stop_protection" {
