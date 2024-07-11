@@ -18,7 +18,7 @@ ignore:
         reason: Value is set by upstream module
         expires: 2025-04-01T00:00:00.000Z
         created: 2024-07-10T18:20:39.256Z
-  SNYK-CC-AWS-405:
+  SNYK-CC-AWS-426:
     - 'main.tf > resource > aws_instance[this] > disable_api_termination':
         reason: Value is set by upstream module
         expires: 2025-04-01T00:00:00.000Z

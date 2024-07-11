@@ -1,8 +1,8 @@
-# [terraform-aws-arc-security](https://github.com/sourcefuse/terraform-aws-arc-security)
+# [terraform-aws-arc-ec2](https://github.com/sourcefuse/terraform-aws-arc-ec2)
 
 ## Overview
 
-AWS Security for the SourceFuse DevOps Reference Architecture Infrastructure.
+AWS ec2 for the SourceFuse DevOps Reference Architecture Infrastructure.
 
 ## First Time Usage
 ```shell
