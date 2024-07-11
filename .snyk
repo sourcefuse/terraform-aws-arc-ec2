@@ -11,3 +11,15 @@ ignore:
   SNYK-CC-AWS-405:
     - 'modules/alb/main.tf > resource > aws_lb[this]':
         reason: Value is set by upstream module
+  SNYK-CC-AWS-426:
+    - 'main.tf > resource > aws_instance[this] > disable_api_termination':
+        reason: Value is set by upstream module
+  SNYK-CC-TF-48:
+    - 'modules/alb/main.tf > resource > aws_lb[this] > internal':
+        reason: Value is set by upstream module
+  SNYK-CC-TF-3:
+    - 'main.tf > input > resource > aws_ebs_volume[this] > encrypted':
+        reason: Value is set by upstream module
+  SNYK-CC-TF-53:
+    - 'main.tf > resource > aws_instance[this] > root_block_device > encrypted':
+        reason: Value is set by upstream module
