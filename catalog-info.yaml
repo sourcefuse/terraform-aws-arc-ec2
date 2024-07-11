@@ -1,0 +1,22 @@
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: terraform-aws-arc-ec2
+  namespace: arc
+  description: Terraform module for managing ec2 Hub components.
+  annotations:
+    snyk.io/org-id: 04111b7b-2ba8-404b-8a16-42a04448794d
+    github.com/project-slug: sourcefuse/terraform-aws-arc-ec2
+    backstage.io/techdocs-ref: dir:.
+  links:
+    - url: https://sourcefuse.github.io/arc-docs/arc-iac-docs/
+      title: ARC Docs
+      icon: dashboard
+    - url: https://sourcefuse.github.io/arc-docs/arc-iac-docs/modules/terraform-aws-arc-ec2/
+      title: ARC DB Docs
+      icon: dashboard
+spec:
+  type: service
+  owner: sourcefuse
+  lifecycle: development
