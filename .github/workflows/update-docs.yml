@@ -44,7 +44,7 @@ jobs:
         with:
           source_file: 'docs/module-usage-guide/README.md'
           destination_repo: 'sourcefuse/arc-docs'
-          destination_folder: 'docs/arc-iac-docs/modules/terraform-aws-arc-ecs/docs/module-usage-guide'
+          destination_folder: 'docs/arc-iac-docs/modules/terraform-aws-arc-ec2/docs/module-usage-guide'
           user_email: 'github-actions@github.com'
           user_name: ${{ github.actor }}
           commit_message: ${{ github.event.head_commit.message }}
