@@ -60,7 +60,7 @@ resource "aws_lb" "this" {
 
   # sonarlint-disable-next-line terraform:S6258
   dynamic "access_logs" {
-    for_each = var.access_logs.enabled ? [1] : []
+    for_each = try(var.access_logs.enabled, false) ? [1] : []
     content {
       bucket  = access_logs.value.bucket
       prefix  = access_logs.value.prefix
