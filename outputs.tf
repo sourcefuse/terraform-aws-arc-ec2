@@ -9,15 +9,15 @@ output "arn" {
 }
 
 output "load_balancer_arn" {
-  value = module.load_balancer[0].arn
+  value = var.load_balancer_data.create ? module.load_balancer[0].arn : null
 }
 
 output "listener_arn" {
   description = "Listener ARN"
-  value       = module.load_balancer[0].listener_arn
+  value       = var.load_balancer_data.create ? module.load_balancer[0].listener_arn : null
 }
 
 output "target_group_arn" {
   description = "Target Group ARN"
-  value       = module.load_balancer[0].target_group_arn
+  value       = var.load_balancer_data.create ? module.load_balancer[0].target_group_arn : null
 }
