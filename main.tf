@@ -146,17 +146,18 @@ resource "aws_iam_role" "this" {
     ]
   })
 
-  dynamic "inline_policy" {
-    for_each = var.instance_profile_data.policy_documents
-    content {
-      name   = inline_policy.value.name
-      policy = inline_policy.value.policy
-    }
-  }
-
   managed_policy_arns = var.instance_profile_data.managed_policy_arns
-
 }
+
+resource "aws_iam_role_policy" "inline" {
+  for_each = var.instance_profile_data.create ? { for p in var.instance_profile_data.policy_documents : p.name => p } : {}
+
+  name   = each.value.name
+  role   = aws_iam_role.this[0].name
+  policy = each.value.policy
+}
+
+
 
 resource "aws_eip" "this" {
   count = var.associate_public_ip_address && var.assign_eip ? 1 : 0
