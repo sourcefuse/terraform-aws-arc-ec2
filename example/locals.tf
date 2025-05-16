@@ -70,7 +70,7 @@ locals {
           port            = "443"
           protocol        = "HTTPS"
           ssl_policy      = "ELBSecurityPolicy-TLS13-1-2-2021-06"
-          certificate_arn = "arn:aws:acm:us-east-1:xxxx:certificate/xx-xx-xx-xx-xx"
+          certificate_arn = "arn:aws:acm:us-east-1:${data.aws_caller_identity.current.account_id}:certificate/d341450e-c196-4617-a122-478c0e070a25"
 
           default_action = {
             type = "forward"
