@@ -146,7 +146,6 @@ resource "aws_iam_role" "this" {
     ]
   })
 
-  managed_policy_arns = var.instance_profile_data.managed_policy_arns
 }
 
 
