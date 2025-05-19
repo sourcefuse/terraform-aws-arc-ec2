@@ -1,5 +1,5 @@
 ---
-name: Terraform Terratest with Go
+name: Terratest
 on:        # yamllint disable-line rule:truthy
   pull_request:
     types: [opened]
