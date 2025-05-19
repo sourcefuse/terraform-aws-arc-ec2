@@ -160,6 +160,15 @@ resource "aws_iam_role_policy" "inline" {
 }
 
 
+resource "aws_iam_role_policy_attachment" "managed" {
+  for_each = var.instance_profile_data.create ? toset(var.instance_profile_data.managed_policy_arns) : []
+
+  role       = aws_iam_role.this[0].name
+  policy_arn = each.value
+}
+
+
+
 
 resource "aws_eip" "this" {
   count = var.associate_public_ip_address && var.assign_eip ? 1 : 0
