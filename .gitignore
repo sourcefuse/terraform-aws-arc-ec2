@@ -1,6 +1,5 @@
 .terraform
 *.tfstate*
-terraform.tfvars
 *.backup
 .idea
 .external_momdules
