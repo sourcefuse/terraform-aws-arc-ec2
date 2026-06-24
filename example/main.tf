@@ -10,7 +10,6 @@ module "tags" {
   project     = "poc"
 }
 
-
 module "ec2_instances" {
   source = "../"
 
